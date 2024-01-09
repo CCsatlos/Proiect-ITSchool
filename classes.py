@@ -12,14 +12,9 @@ file_path_tasks = ROOT / FOLDER / "Tasks.pkl"
 
 
 
-def create_the_database():
-    if not file_path_employees.exists():
-        with open(file_path_employees, "wb"):
-            pass
-
-def create_the_database1():
-    if not file_path_tasks.exists():
-        with open(file_path_tasks, "wb"):
+def create_the_database(file_path):
+    if not file_path.exists():
+        with open(file_path, "wb"):
             pass
 
 
@@ -59,7 +54,7 @@ class Employee:
         try:
             with open(file_path_employees, "rb") as fin:
                 self.employee_container = pickle.load(fin)
-        except OSError as err:
+        except (OSError, EOFError) as err:
             return err
         else:
             for key, value in self.employee_container.items():
@@ -114,6 +109,8 @@ class Employee:
         for hours in self.employee_container.values():
             total += hours
         return total    
+
+
 
 class Task:
     """

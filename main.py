@@ -1,20 +1,24 @@
 from menu import MainMenu
-from classes import Employee, Task, create_the_database, create_the_database1
+from classes import Employee, Task, create_the_database
 import pickle
 import pathlib
 from pathlib import Path
+
 
 ROOT = pathlib.Path(__file__).parent
 FOLDER = Path("D:\Phyton course\Proiect\Database")
 file_path_employees = ROOT / FOLDER / "Employees.pkl"
 file_path_tasks = ROOT / FOLDER / "Tasks.pkl"
 
+
 emp = Employee()
 tsk = Task()
 the_plan = {}
 
-create_the_database()
-create_the_database1()
+
+create_the_database(file_path_employees)
+create_the_database(file_path_tasks)
+
 
 def planning():
 
@@ -25,8 +29,8 @@ def planning():
             tsk.tasks_container = pickle.load(fin)
 
         for emp_name, whours in emp.employee_container.items():
-            available_lines = whours * 60 / 6 
-            for task_name, (lines, _) in tsk.tasks_container.items():  
+            for task_name, (lines, _) in tsk.tasks_container.items():
+                available_lines = whours * 60 / 6   
                 
                 # Verificam daca sunt linii in task si spatiu productiv la angajat
                 if lines > 0 and available_lines > 0:
@@ -54,8 +58,6 @@ def planning():
 if __name__ == "__main__":
 
     main = MainMenu()
-
-    create_the_database()
 
     main.add_option("1", "Add a new employee", lambda: emp.add_employee())
     main.add_option("2", "View the employees", lambda: emp.show_the_container())
