@@ -11,8 +11,8 @@ file_path_employees = ROOT / FOLDER / "Employees.pkl"
 file_path_tasks = ROOT / FOLDER / "Tasks.pkl"
 
 
-emp = Employee()
-tsk = Task()
+emp = Employee("Test", 0)
+tsk = Task("Test", 0)
 the_plan = {}
 
 
@@ -63,9 +63,9 @@ if __name__ == "__main__":
     main.add_option("2", "View the employees", lambda: emp.show_the_container())
     main.add_option("3", "Delete an employee", lambda: emp.remove_employee())
     main.add_option("4", "Change something to an employee", lambda: emp.change_something_at_employee())
-    main.add_option("5", "Add a new task", lambda: tsk.add_task())
+    main.add_option("5", "Add a new task", lambda: tsk.check_and_add_task())
     main.add_option("6", "View the tasks", lambda: tsk.show_the_container())
     main.add_option("7", "Remove a task", lambda: tsk.remove_task())
-    main.add_option("8", "Test", lambda: planning())
+    main.add_option("8", "Test", lambda: None)
 
     main.run()
