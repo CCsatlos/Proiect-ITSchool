@@ -1,93 +1,235 @@
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, ForeignKey, Integer, String, delete, update
+from sqlalchemy.orm import sessionmaker
+from connection import engine
 from datetime import datetime
-import pickle
-import paths
-import database as db
-class Employee:
 
-    """
-    The class aims to serve as a container for the dictionary of employees and manage it. 
-    The methods vary from addition, modification, to deletion, depending on the need.
-    """
+
+Base = declarative_base()
+
+def create_metadata():
+    Base.metadata.create_all(engine)
+
+Session = sessionmaker(bind = engine)
+session = Session()
+
+
+class Employee(Base):
+
+    """The class represents an employee. Through this class, employees can be added or deleted, 
+       as well as some data related to employees can be modified."""
+
+    __tablename__ = 'Employees'
+    num_id = Column(Integer, primary_key=True)
+    first_name = Column(String)
+    last_name = Column(String)
+    working_hours  = Column(Integer)
+    available_lines = Column(Integer, default = 0 )
     
-    def __init__(self, f_name, l_name, working_hours):
-        
-        self.first_name = f_name
-        self.last_name = l_name
-        self.working_hours = working_hours
+    def __init__(self, first_name, last_name, working_hours):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.working_hours = working_hours    
 
     def add_employee(self):
-        self.first_name = input("Enter the first name: ").strip()
-        self.last_name = input("Enter the last name: ").strip()
+
+        """Through this method, an employee can be added to the database. No arguments needed."""
+
+        self.first_name = input("Enter the first name: ").title().strip()
+        self.last_name = input("Enter the last name: ").title().strip()
         self.working_hours = float(input("Enter the working hours per day: "))
+        new_employee = Employee(first_name = self.first_name,
+                                last_name = self.last_name,
+                                working_hours = self.working_hours)
+        new_employee.available_lines = self.working_hours * 10
+        session.add(new_employee)
+        session.commit()
 
-        db.insert_employee(db.conn, self.first_name, self.last_name, self.working_hours)
+    def show_employees(self):
 
-    def show_the_container(self):
-        print (f"The employees are:")
-        db.show_employees(db.conn)
+        """A list of all employees will be displayed."""
 
-    def remove_employee(self):
+        list = session.query(Employee).all()
+        print("=" * 30)
+        print ("The list with employees.")
+        print("=" * 30)
+        for row in list:
+            print ("ID:", row.num_id, "Name:", row.first_name, row.last_name,  "Working hours per day:", row.working_hours)
+    
+    def delete_item(self):
 
-        first_name = input("Enter the employee`s first_name or 0 to exit: ").strip()
-        last_name = input("Enter the employee`s last_name or 0 to exit: ").strip()
+        """Through this method, an employee can be deleted from the database. No arguments needed."""
 
-        db.remove_employee(db.conn, first_name, last_name)
-        
-    def change_something_at_employee(self):
-        pass
-
-
-class Task:
-    """
-    The class aims to serve as a container for the dictionary of tasks and manage it. 
-    The methods vary from showing available tasks, addition, modification, to deletion, 
-    depending on the need.
-    """
-
-    def __init__(self, name, lines):
-        
-        self.name = name
-        self.lines = lines
-        self.date = datetime.now()
-
-    def check_and_add_task(self):
-        self.name = str(input("Enter the task`s name: ")).strip()
-        self.lines = int(input("Enter the quantity: "))
-        formatted_datetime = self.date.strftime("%d.%m.%Y, %H:%M")
-        
-        task_exist = db.select_task(db.conn, self.name, self.lines)
-
-        if task_exist:
-            print(f"The task {self.name} is already in the list.")
+        user_input = int(input("To delete an employee, please enter the ID: "))
+        check_id = session.query(Employee).get(user_input)
+        if not check_id:
+            print(f"We did`nt find the ID number {user_input}")
             return
         else:
-            db.insert_task(db.conn, self.name, formatted_datetime, self.lines)
+            session.execute(delete(Employee).where(Employee.num_id == user_input))
+            session.commit()
 
-    def show_the_container(self):
-        print (f"The tasks are:")
-        db.show_tasks(db.conn)
+    def recharge_available_lines(self):
+
+        """Through this method, the employees' available hours will be reallocated. 
+           Considering that each line in the task requires 6 minutes of processing, 
+           each available hour represents 10 lines in the task."""
+
+        employees = session.query(Employee).order_by(Employee.available_lines).all()
+        for employee in employees:
+            hours = employee.working_hours * 10
+            session.execute(update(Employee).where(Employee.num_id == employee.num_id).values(available_lines = hours))
+        session.commit() 
+        return
+
+class Task(Base):
+
+    """The class represents a task. Through this class, tasks can be added or deleted."""
+
+    __tablename__ = 'Tasks'
+    num_id = Column(Integer, primary_key=True)
+
+    date = Column(String)
+    hour = Column(String)
+    name = Column(String)
+    lines  = Column(Integer)
+    available_lines = Column(Integer, default=lambda self: self.lines)
     
-    def remove_task(self):
+    def __init__(self, date, hour, name, lines):
+        self.date = date
+        self.hour = hour
+        self.name = name
+        self.lines = lines
+        self.available_lines = lines
 
-        user_choice_name = str(input("Enter the task`s name you want to delete: ")).strip()
-        user_choice_date = input("Enter the received date: ").strip()
+    def move_completed_tasks(self):
 
-        db.remove_task(db.conn, user_choice_name, user_choice_date)
-            
-            
-class Plan:
+        """The method helps to archive complete tasks. The basic criterion is the number of lines left in the task. 
+           If number of lines is equal to 0, then the task will be copied as a new object into the Archive class."""
 
-    """The class should create a plan for each day with the support of other classes. """
+        tasks = session.query(Task).filter_by(available_lines = 0).all()
+        for task in tasks:
+            old_task = Archive(date = task.date,
+                            hour = task.hour,
+                            name = task.name,
+                            lines = task.lines)
+            session.add(old_task)
+        session.commit()
 
-    def __init__(self):
+    def delete_completed_task(self):
+
+        """Through this method, a certain task will be deleted. To be able to delete the task, you need its id number"""
+
+        tasks = session.query(Task).filter_by(available_lines = 0).all()
+        for task in tasks:
+            session.execute(delete(Task).where(Task.num_id == task.num_id))
+        session.commit()
+
+    def add_task(self):
+
+        """Through this method, a certain task will be deleted."""
+
+        self.name = input("Enter the task`s name: ").title().strip()
+        self.lines = input("Enter the number of line: ").title().strip()
+        now = datetime.now()
+        new_task = Task(date = now.strftime("%d/%m/%Y"),
+                        hour = now.strftime("%H:%M:%S"),
+                        name = self.name,
+                        lines = self.lines,)
+        session.add(new_task)
+        session.commit()
+
+    def show_tasks(self):
+
+        """A list of all tasks will be displayed."""
+
+        list = session.query(Task).all()
+        print("=" * 30)
+        print ("The list with tasks.")
+        print("=" * 30)
+        for row in list:
+            print ("ID:", row.num_id, "Date:", row.date, "Hour:", row.hour, "Name:", row.name, "Nr. of lines", row.lines)
+
+    def delete_item(self):
+
+        """Through this method, a certain task will be deleted. To be able to delete the task, you need its id number"""
+
+        user_input = int(input("To delete a task, please enter the ID: "))
+        check_id = session.query(Task).get(user_input)
+        if not check_id:
+            print(f"We did`nt find the ID number {user_input}")
+            return
+        else:
+            session.execute(delete(Task).where(Task.num_id == user_input))
+            session.commit()
+
+
+class Plan(Base):
+     
+    """This class is meant to create a time plan object. It includes methods for calculating the work 
+    schedule for a working day. Also, through this class, writing to the Excel file will be performed."""
+
+    __tablename__ = 'Plan'
+    num_id = Column(Integer, primary_key=True)
+
+    date        = Column(String)
+    task_name   = Column(String, ForeignKey(Task.num_id))
+    users       = Column(String)
+    lines       = Column(Integer)
+
+    def __init__(self, date, task_name, users, lines):
+        self.date = date
+        self.task_name = task_name
+        self.users = users
+        self.lines = lines
+
+    def create_plan(self):
+
+        """The method takes from another classes all necessary data to calculate the time plan object."""
         
-        self.day = str(datetime.now().date())
+        while True:
+            # create two lists of available tasks and employees
+            tasks = session.query(Task).order_by(Task.date.asc(), Task.available_lines.asc()).all()
+            employees = session.query(Employee).order_by(Employee.available_lines.desc()).all()
 
-    def create_daily_plan():
-        pass
-    
-    def show_plan():
-        pass
+            # verifying if the tasks were full assigned or if the employees` availability is at maximum capacity
+            if all(task.available_lines == 0 for task in tasks) or \
+               all(employee.available_lines == 0 for employee in employees):
+                break
+            
+            for task in tasks:
+                for employee in employees:
+                    if task.available_lines == 0 or employee.available_lines == 0:
+                        continue
+                    availability = min(task.available_lines, employee.available_lines)
+
+                    now = datetime.now().strftime("%d/%m/%Y")
+                    new_plan = Plan(
+                        date=now,
+                        task_name=task.name,
+                        users=employee.last_name,
+                        lines=availability)
+
+                    task.available_lines -= availability
+                    employee.available_lines -= availability
+
+                    session.add(new_plan)
+                    session.commit()
+                    Task.move_completed_tasks(Task)
+                    Task.delete_completed_task(Task)
+        return
+            
+class Archive(Base):
+
+    """The class serves as an container for the assigned tasks. No methods are needed. """
+
+    __tablename__ = "Archive"    
+    num_id = Column(Integer, primary_key=True)
+
+    date = Column(String)
+    hour = Column(String)
+    name = Column(String)
+    lines  = Column(Integer)
 
 
-    
+            

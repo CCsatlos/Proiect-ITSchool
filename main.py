@@ -1,25 +1,21 @@
+import classes
 from menu import MainMenu
-from classes import Employee, Task, Plan
-import database as db
 
-emp = Employee("Test", "Test 2", 0)
-tsk = Task("Test", 0)
-plan = Plan()
+classes.create_metadata()
 
-db.create_table(db.conn, db.CREATE_EMPLOYEES_TABLE)
-db.create_table(db.conn, db.CREATE_TASK_TABLE)
+emp = classes.Employee("first name", "last name", 0)
+tsk = classes.Task("date", "hours", "name", 0)
+pln = classes.Plan("date", "task_name", "users", 0)
 
 if __name__ == "__main__":
-
     main = MainMenu()
-
-    main.add_option("1", "Add a new employee", lambda: emp.add_employee())
-    main.add_option("2", "View the employees", lambda: emp.show_the_container())
-    main.add_option("3", "Delete an employee", lambda: emp.remove_employee())
-    main.add_option("4", "Change something to an employee", lambda: emp.change_something_at_employee()) # not implemented
-    main.add_option("5", "Add a new task", lambda: tsk.check_and_add_task())
-    main.add_option("6", "View the tasks", lambda: tsk.show_the_container()) 
-    main.add_option("7", "Remove a task", lambda: tsk.remove_task()) 
-    main.add_option("8", "Create the plan", lambda: plan.create_daily_plan()) # not implemented
-
+    main.add_option("1", "Add a new employee", lambda: classes.Employee.add_employee(emp))
+    main.add_option("2", "View the employees", lambda: classes.Employee.show_employees(emp))
+    main.add_option("3", "Delete an employee", lambda: classes.Employee.delete_item(emp))
+    main.add_option("4", "Add a task", lambda: classes.Task.add_task(tsk))
+    main.add_option("5", "View the tasks", lambda: classes.Task.show_tasks(tsk))
+    main.add_option("6", "Delete a task", lambda: classes.Task.delete_item(tsk))
+    main.add_option("7", "Create a plan", lambda: classes.Plan.create_plan(pln))
+    main.add_option("8", "Recharge available lines for employees", lambda: classes.Employee.recharge_available_lines(emp))
     main.run()
+    
