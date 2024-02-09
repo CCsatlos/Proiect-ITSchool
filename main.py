@@ -5,7 +5,7 @@ classes.create_metadata()
 
 emp = classes.Employee("first name", "last name", 0)
 tsk = classes.Task("date", "hours", "name", 0)
-pln = classes.Plan("date", "task_name", "users", 0)
+pln = classes.Plan("date", "hours", "task_name", "users", 0)
 
 if __name__ == "__main__":
     main = MainMenu()
@@ -17,5 +17,6 @@ if __name__ == "__main__":
     main.add_option("6", "Delete a task", lambda: classes.Task.delete_item(tsk))
     main.add_option("7", "Create a plan", lambda: classes.Plan.create_plan(pln))
     main.add_option("8", "Recharge available lines for employees", lambda: classes.Employee.recharge_available_lines(emp))
+    main.add_option("9", "Test", lambda: classes.Plan.write_the_plan(pln))
     main.run()
     

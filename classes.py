@@ -1,8 +1,10 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, ForeignKey, Integer, String, delete, update
 from sqlalchemy.orm import sessionmaker
-from connection import engine
+from connection import engine, folder_path
 from datetime import datetime
+from openpyxl import Workbook, load_workbook
+import os
 
 
 Base = declarative_base()
@@ -173,15 +175,20 @@ class Plan(Base):
     num_id = Column(Integer, primary_key=True)
 
     date        = Column(String)
+    hour        = Column(String)
     task_name   = Column(String, ForeignKey(Task.num_id))
     users       = Column(String)
     lines       = Column(Integer)
 
-    def __init__(self, date, task_name, users, lines):
+    def __init__(self, date, hour, task_name, users, lines):
         self.date = date
+        self.hour = hour
         self.task_name = task_name
         self.users = users
         self.lines = lines
+        self.today = datetime.now().strftime("%d.%m.%Y")
+        self.xlsx_name = f"Plan {self.today}.xlsx"
+        self.file_path = os.path.join(folder_path, self.xlsx_name)
 
     def create_plan(self):
 
@@ -206,6 +213,7 @@ class Plan(Base):
                     now = datetime.now().strftime("%d/%m/%Y")
                     new_plan = Plan(
                         date=now,
+                        hour = task.hour,
                         task_name=task.name,
                         users=employee.last_name,
                         lines=availability)
@@ -218,7 +226,31 @@ class Plan(Base):
                     Task.move_completed_tasks(Task)
                     Task.delete_completed_task(Task)
         return
-            
+
+    def create_workbook(self):
+
+        if os.path.exists(self.file_path):
+            print("The plan was created. Please check your folder!")
+            return
+        else:
+            try:
+                wb = Workbook()
+                wb.save(f"D:\\Python course\\Proiect\\{self.xlsx_name}")
+            except OSError as err:
+                print(err)
+
+    def write_the_plan(self):
+        
+        if self.xlsx_name in self.file_path:
+            print("Warning: the plan was overwrite.")
+            return
+        
+        # plan_list = session.query(Plan).order_by(Plan.date).order_by(Plan.hour).all()
+
+        # for task in plan_list:
+        #     print (task)
+
+        
 class Archive(Base):
 
     """The class serves as an container for the assigned tasks. No methods are needed. """
@@ -232,4 +264,7 @@ class Archive(Base):
     lines  = Column(Integer)
 
 
-            
+
+
+
+
