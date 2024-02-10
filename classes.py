@@ -5,6 +5,7 @@ from connection import engine, folder_path
 from datetime import datetime
 from openpyxl import Workbook, load_workbook
 import os
+import string
 
 
 Base = declarative_base()
@@ -26,7 +27,7 @@ class Employee(Base):
     first_name = Column(String)
     last_name = Column(String)
     working_hours  = Column(Integer)
-    available_lines = Column(Integer, default = 0 )
+    available_lines = Column(Integer, default = 0)
     
     def __init__(self, first_name, last_name, working_hours):
         self.first_name = first_name
@@ -210,13 +211,12 @@ class Plan(Base):
                         continue
                     availability = min(task.available_lines, employee.available_lines)
 
-                    now = datetime.now().strftime("%d/%m/%Y")
                     new_plan = Plan(
-                        date=now,
+                        date = self.today,
                         hour = task.hour,
-                        task_name=task.name,
-                        users=employee.last_name,
-                        lines=availability)
+                        task_name = task.name,
+                        users = employee.last_name,
+                        lines = availability)
 
                     task.available_lines -= availability
                     employee.available_lines -= availability
@@ -230,27 +230,42 @@ class Plan(Base):
     def create_workbook(self):
 
         if os.path.exists(self.file_path):
-            print("The plan was created. Please check your folder!")
+            print("*" * 30)
+            print("The plan was created. Your data were overwrite. Please check your folder!")
+            print("*" * 30)
             return
         else:
             try:
                 wb = Workbook()
-                wb.save(f"D:\\Python course\\Proiect\\{self.xlsx_name}")
+                wb.save(self.file_path)
             except OSError as err:
                 print(err)
 
     def write_the_plan(self):
         
-        if self.xlsx_name in self.file_path:
-            print("Warning: the plan was overwrite.")
-            return
-        
-        # plan_list = session.query(Plan).order_by(Plan.date).order_by(Plan.hour).all()
+        self.create_workbook()
 
-        # for task in plan_list:
-        #     print (task)
+        plan_list = session.query(Plan).order_by(Plan.date).order_by(Plan.hour).all()
 
-        
+        wb = load_workbook(self.file_path)
+        ws = wb.active
+        ws.merge_cells('A1:E1')
+        ws["A1"] = self.today
+        row_idx = 2
+          
+        for task in plan_list:
+            col_idx = 1
+            for attribute in [task.date, task.hour, task.task_name, task.users, task.lines]:
+                ws.cell(row = row_idx, column = col_idx, value = attribute)
+                col_idx += 1
+            row_idx += 1
+
+        wb.save(self.file_path)
+
+        for task in plan_list:
+            session.execute(delete(Plan).where(Plan.num_id == task.num_id))
+        session.commit()
+
 class Archive(Base):
 
     """The class serves as an container for the assigned tasks. No methods are needed. """
