@@ -1,12 +1,19 @@
+import os
+from datetime import datetime
+import logging
+
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, ForeignKey, Integer, String, delete, update
 from sqlalchemy.orm import sessionmaker
-from connection import engine, folder_path
-from datetime import datetime
 from openpyxl import Workbook, load_workbook
-import os
-import string
+from openpyxl.styles import Alignment, Font, PatternFill
 
+from connection import engine, folder_path, ROOT
+
+#Root for logging
+logging.basicConfig(filename = ROOT / "log.log", \
+                    format="%(asctime)s %(levelname)-10s %(message)s", \
+                    level = logging.DEBUG)
 
 Base = declarative_base()
 
@@ -19,8 +26,8 @@ session = Session()
 
 class Employee(Base):
 
-    """The class represents an employee. Through this class, employees can be added or deleted, 
-       as well as some data related to employees can be modified."""
+    """The class represents an employee. Through this class, employees can be added 
+       or deleted, as well as some data related to employees can be modified."""
 
     __tablename__ = 'Employees'
     num_id = Column(Integer, primary_key=True)
@@ -47,6 +54,8 @@ class Employee(Base):
         new_employee.available_lines = self.working_hours * 10
         session.add(new_employee)
         session.commit()
+        logging.info(f"New employee added. Full name: \
+                     {new_employee.first_name} {new_employee.last_name} ")
 
     def show_employees(self):
 
@@ -57,20 +66,24 @@ class Employee(Base):
         print ("The list with employees.")
         print("=" * 30)
         for row in list:
-            print ("ID:", row.num_id, "Name:", row.first_name, row.last_name,  "Working hours per day:", row.working_hours)
+            print ("ID:", row.num_id, "Name:", row.first_name, row.last_name,  
+                   "Working hours per day:", row.working_hours)
     
     def delete_item(self):
 
-        """Through this method, an employee can be deleted from the database. No arguments needed."""
+        """Through this method, an employee can be deleted from the database. 
+           No arguments needed."""
 
         user_input = int(input("To delete an employee, please enter the ID: "))
         check_id = session.query(Employee).get(user_input)
+        emp_name = session.query(Employee).filter(Employee.num_id == user_input).first().last_name
         if not check_id:
             print(f"We did`nt find the ID number {user_input}")
             return
         else:
             session.execute(delete(Employee).where(Employee.num_id == user_input))
             session.commit()
+        logging.info(f"An employee was deleted. Last name: {emp_name}")
 
     def recharge_available_lines(self):
 
@@ -83,6 +96,7 @@ class Employee(Base):
             hours = employee.working_hours * 10
             session.execute(update(Employee).where(Employee.num_id == employee.num_id).values(available_lines = hours))
         session.commit() 
+        logging.info("the employees' available hours/lines were recharged.")
         return
 
 class Task(Base):
@@ -107,8 +121,9 @@ class Task(Base):
 
     def move_completed_tasks(self):
 
-        """The method helps to archive complete tasks. The basic criterion is the number of lines left in the task. 
-           If number of lines is equal to 0, then the task will be copied as a new object into the Archive class."""
+        """The method helps to archive complete tasks. The basic criterion is the 
+           number of lines left in the task. If number of lines is equal to 0, then 
+           the task will be copied as a new object into the Archive class."""
 
         tasks = session.query(Task).filter_by(available_lines = 0).all()
         for task in tasks:
@@ -117,15 +132,19 @@ class Task(Base):
                             name = task.name,
                             lines = task.lines)
             session.add(old_task)
+            logging.info(f"The task {task.name} from {task.date} was archived.")
         session.commit()
+
 
     def delete_completed_task(self):
 
-        """Through this method, a certain task will be deleted. To be able to delete the task, you need its id number"""
+        """Through this method, a certain task will be deleted. 
+           To be able to delete the task, you need its id number"""
 
         tasks = session.query(Task).filter_by(available_lines = 0).all()
         for task in tasks:
             session.execute(delete(Task).where(Task.num_id == task.num_id))
+            logging.info(f"The completed task {task.name} was deleted.")
         session.commit()
 
     def add_task(self):
@@ -141,7 +160,7 @@ class Task(Base):
                         lines = self.lines,)
         session.add(new_task)
         session.commit()
-
+        logging.info(f"The task {new_task.name} was added.")
     def show_tasks(self):
 
         """A list of all tasks will be displayed."""
@@ -155,22 +174,26 @@ class Task(Base):
 
     def delete_item(self):
 
-        """Through this method, a certain task will be deleted. To be able to delete the task, you need its id number"""
+        """Through this method, a certain task will be deleted. 
+           To be able to delete the task, you need its id number"""
 
         user_input = int(input("To delete a task, please enter the ID: "))
         check_id = session.query(Task).get(user_input)
+        task_name = session.query(Task).filter(Task.num_id == user_input).first().name
         if not check_id:
             print(f"We did`nt find the ID number {user_input}")
             return
         else:
             session.execute(delete(Task).where(Task.num_id == user_input))
             session.commit()
+        logging.info(f"The task {task_name} was on purpose deleted.")
 
 
 class Plan(Base):
      
-    """This class is meant to create a time plan object. It includes methods for calculating the work 
-    schedule for a working day. Also, through this class, writing to the Excel file will be performed."""
+    """This class is meant to create a time plan object. It includes 
+       methods for calculating the work schedule for a working day. 
+       Also, through this class, writing to the Excel file will be performed."""
 
     __tablename__ = 'Plan'
     num_id = Column(Integer, primary_key=True)
@@ -193,14 +216,16 @@ class Plan(Base):
 
     def create_plan(self):
 
-        """The method takes from another classes all necessary data to calculate the time plan object."""
+        """The method takes from another classes all necessary 
+           data to calculate the time plan object."""
         
         while True:
             # create two lists of available tasks and employees
             tasks = session.query(Task).order_by(Task.date.asc(), Task.available_lines.asc()).all()
             employees = session.query(Employee).order_by(Employee.available_lines.desc()).all()
 
-            # verifying if the tasks were full assigned or if the employees` availability is at maximum capacity
+            # verifying if the tasks were full assigned or if 
+            # the employees` availability is at maximum capacity
             if all(task.available_lines == 0 for task in tasks) or \
                all(employee.available_lines == 0 for employee in employees):
                 break
@@ -225,6 +250,7 @@ class Plan(Base):
                     session.commit()
                     Task.move_completed_tasks(Task)
                     Task.delete_completed_task(Task)
+        logging.info(f"The plan for {self.today} was created.")
         return
 
     def create_workbook(self):
@@ -233,38 +259,46 @@ class Plan(Base):
             print("*" * 30)
             print("The plan was created. Your data were overwrite. Please check your folder!")
             print("*" * 30)
+            logging.warning("The data in xlsx file were overwrite")
             return
         else:
             try:
                 wb = Workbook()
                 wb.save(self.file_path)
+                logging.info(f"The xlsx file was created. Name: {self.xlsx_name}")
             except OSError as err:
                 print(err)
 
     def write_the_plan(self):
         
-        self.create_workbook()
-
         plan_list = session.query(Plan).order_by(Plan.date).order_by(Plan.hour).all()
 
+        self.create_workbook()
         wb = load_workbook(self.file_path)
         ws = wb.active
-        ws.merge_cells('A1:E1')
-        ws["A1"] = self.today
+
         row_idx = 2
-          
         for task in plan_list:
             col_idx = 1
             for attribute in [task.date, task.hour, task.task_name, task.users, task.lines]:
                 ws.cell(row = row_idx, column = col_idx, value = attribute)
                 col_idx += 1
             row_idx += 1
+        
+        ws.merge_cells('A1:E1')
+        ws["A1"] = self.today
+        title_left_cell = ws["A1"]
+        title_left_cell.alignment = Alignment(horizontal = "center")
+        title_left_cell.font = Font(b = True)
+        fill_cell = PatternFill(fill_type="solid", fgColor="00FFFF99")
+        title_left_cell.fill = fill_cell
 
         wb.save(self.file_path)
 
         for task in plan_list:
             session.execute(delete(Plan).where(Plan.num_id == task.num_id))
         session.commit()
+        logging.info(f"The plan was written. File name: {self.xlsx_name}")
 
 class Archive(Base):
 
