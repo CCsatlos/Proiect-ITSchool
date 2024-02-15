@@ -3,7 +3,7 @@ from menu import MainMenu
 
 classes.create_metadata()
 
-emp = classes.Employee("first name", "last name", 0)
+emp = classes.Employee("name", 0)
 tsk = classes.Task("date", "hours", "name", 0)
 pln = classes.Plan("date", "hours", "task_name", "users", 0)
 

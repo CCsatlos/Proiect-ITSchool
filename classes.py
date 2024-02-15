@@ -10,7 +10,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 
 from connection import engine, folder_path, ROOT
 
-#Root for logging
+#Configuration for logging
 logging.basicConfig(filename = ROOT / "log.log", \
                     format="%(asctime)s %(levelname)-10s %(message)s", \
                     level = logging.DEBUG)
@@ -31,31 +31,31 @@ class Employee(Base):
 
     __tablename__ = 'Employees'
     num_id = Column(Integer, primary_key=True)
-    first_name = Column(String)
-    last_name = Column(String)
+    full_name = Column(String)
     working_hours  = Column(Integer)
     available_lines = Column(Integer, default = 0)
     
-    def __init__(self, first_name, last_name, working_hours):
-        self.first_name = first_name
-        self.last_name = last_name
+    def __init__(self, full_name, working_hours):
+        self.full_name = full_name
         self.working_hours = working_hours    
 
     def add_employee(self):
 
         """Through this method, an employee can be added to the database. No arguments needed."""
-
-        self.first_name = input("Enter the first name: ").title().strip()
-        self.last_name = input("Enter the last name: ").title().strip()
-        self.working_hours = float(input("Enter the working hours per day: "))
-        new_employee = Employee(first_name = self.first_name,
-                                last_name = self.last_name,
+        
+        try:
+            self.full_name = input("Enter the last name: ").title().strip()
+            self.working_hours = float(input("Enter the working hours per day: "))
+        except ValueError:
+            print("There is a writing error. Please try to enter the data again carefully.")
+            logging.error(f"New employee: The data was not entered correctly.")
+            return
+        new_employee = Employee(full_name = self.full_name,
                                 working_hours = self.working_hours)
         new_employee.available_lines = self.working_hours * 10
         session.add(new_employee)
         session.commit()
-        logging.info(f"New employee added. Full name: \
-                     {new_employee.first_name} {new_employee.last_name} ")
+        logging.info(f"New employee added. Full name: {new_employee.full_name} ")
 
     def show_employees(self):
 
@@ -66,7 +66,7 @@ class Employee(Base):
         print ("The list with employees.")
         print("=" * 30)
         for row in list:
-            print ("ID:", row.num_id, "Name:", row.first_name, row.last_name,  
+            print ("ID:", row.num_id, "Name:", row.full_name,   
                    "Working hours per day:", row.working_hours)
     
     def delete_item(self):
@@ -75,14 +75,17 @@ class Employee(Base):
            No arguments needed."""
 
         user_input = int(input("To delete an employee, please enter the ID: "))
-        check_id = session.query(Employee).get(user_input)
-        emp_name = session.query(Employee).filter(Employee.num_id == user_input).first().last_name
-        if not check_id:
-            print(f"We did`nt find the ID number {user_input}")
+        try:
+            emp_name = session.query(Employee).filter(Employee.num_id == user_input).first().full_name
+        except AttributeError:
+            print("The user ID doesn`t exist. Please try again!")
+            logging.error("No User ID found.")
             return
+
         else:
             session.execute(delete(Employee).where(Employee.num_id == user_input))
             session.commit()
+            print(f"Employee {emp_name} has been successfully deleted.")
         logging.info(f"An employee was deleted. Last name: {emp_name}")
 
     def recharge_available_lines(self):
@@ -96,7 +99,8 @@ class Employee(Base):
             hours = employee.working_hours * 10
             session.execute(update(Employee).where(Employee.num_id == employee.num_id).values(available_lines = hours))
         session.commit() 
-        logging.info("the employees' available hours/lines were recharged.")
+        print ("the employees' available hours/lines were recharged.")
+        logging.info("The employees' available hours/lines were recharged.")
         return
 
 class Task(Base):
@@ -112,12 +116,14 @@ class Task(Base):
     lines  = Column(Integer)
     available_lines = Column(Integer, default=lambda self: self.lines)
     
+
     def __init__(self, date, hour, name, lines):
         self.date = date
         self.hour = hour
         self.name = name
         self.lines = lines
         self.available_lines = lines
+
 
     def move_completed_tasks(self):
 
@@ -144,15 +150,22 @@ class Task(Base):
         tasks = session.query(Task).filter_by(available_lines = 0).all()
         for task in tasks:
             session.execute(delete(Task).where(Task.num_id == task.num_id))
-            logging.info(f"The completed task {task.name} was deleted.")
+            logging.info(f"The completed tasks {task.name} were deleted.")
         session.commit()
+
 
     def add_task(self):
 
         """Through this method, a certain task will be deleted."""
 
-        self.name = input("Enter the task`s name: ").title().strip()
-        self.lines = input("Enter the number of line: ").title().strip()
+        try:
+            self.name = str(input("Enter the task`s name: ")).title().strip()
+            self.lines = int(input("Enter the number of line: "))
+        except ValueError:
+            print("There is a writing error. Please try to enter the data again carefully.")
+            logging.error(f"New task: The data was not entered correctly.")
+            return
+
         now = datetime.now()
         new_task = Task(date = now.strftime("%d/%m/%Y"),
                         hour = now.strftime("%H:%M:%S"),
@@ -160,7 +173,10 @@ class Task(Base):
                         lines = self.lines,)
         session.add(new_task)
         session.commit()
+        print(f"The task {new_task.name} was added.")
         logging.info(f"The task {new_task.name} was added.")
+
+
     def show_tasks(self):
 
         """A list of all tasks will be displayed."""
@@ -177,17 +193,19 @@ class Task(Base):
         """Through this method, a certain task will be deleted. 
            To be able to delete the task, you need its id number"""
 
-        user_input = int(input("To delete a task, please enter the ID: "))
-        check_id = session.query(Task).get(user_input)
-        task_name = session.query(Task).filter(Task.num_id == user_input).first().name
-        if not check_id:
-            print(f"We did`nt find the ID number {user_input}")
+        try:
+            user_input = int(input("To delete a task, please enter the ID: "))
+            task_name = session.query(Task).filter(Task.num_id == user_input).first().name
+        except (ValueError, AttributeError):
+            print("No ID number introduced or could not be found.")
+            logging.error("Delete item: No ID number introduced.")
             return
         else:
             session.execute(delete(Task).where(Task.num_id == user_input))
             session.commit()
-        logging.info(f"The task {task_name} was on purpose deleted.")
-
+            print(f"The task {task_name} was on purpose deleted.")
+            logging.info(f"The task {task_name} was on purpose deleted.")
+            
 
 class Plan(Base):
      
@@ -268,6 +286,7 @@ class Plan(Base):
                 logging.info(f"The xlsx file was created. Name: {self.xlsx_name}")
             except OSError as err:
                 print(err)
+                logging.error(err)
 
     def write_the_plan(self):
         
