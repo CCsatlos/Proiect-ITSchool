@@ -17,6 +17,6 @@ if __name__ == "__main__":
     main.add_option("6", "Delete a task", lambda: classes.Task.delete_item(tsk))
     main.add_option("7", "Create a plan", lambda: classes.Plan.create_plan(pln))
     main.add_option("8", "Recharge available lines for employees", lambda: classes.Employee.recharge_available_lines(emp))
-    main.add_option("9", "Test", lambda: classes.Plan.write_the_plan(pln))
+    main.add_option("9", "Write the plan into a XLSX file", lambda: classes.Plan.write_plan(pln))
     main.run()
     

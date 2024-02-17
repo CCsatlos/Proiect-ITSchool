@@ -3,7 +3,7 @@ from datetime import datetime
 import logging
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, ForeignKey, Integer, String, delete, update
+from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, delete, update
 from sqlalchemy.orm import sessionmaker
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -44,7 +44,7 @@ class Employee(Base):
         """Through this method, an employee can be added to the database. No arguments needed."""
         
         try:
-            self.full_name = input("Enter the last name: ").title().strip()
+            self.full_name = input("Enter the full name: ").capitalize().strip()
             self.working_hours = float(input("Enter the working hours per day: "))
         except ValueError:
             print("There is a writing error. Please try to enter the data again carefully.")
@@ -66,8 +66,7 @@ class Employee(Base):
         print ("The list with employees.")
         print("=" * 30)
         for row in list:
-            print ("ID:", row.num_id, "Name:", row.full_name,   
-                   "Working hours per day:", row.working_hours)
+            print(f"ID: {row.num_id: <3} Name: {row.full_name: <20} Working hours per day: {row.working_hours}")
     
     def delete_item(self):
 
@@ -115,6 +114,7 @@ class Task(Base):
     name = Column(String)
     lines  = Column(Integer)
     available_lines = Column(Integer, default=lambda self: self.lines)
+    processed = Column(Boolean, default = False)
     
 
     def __init__(self, date, hour, name, lines):
@@ -125,32 +125,16 @@ class Task(Base):
         self.available_lines = lines
 
 
-    def move_completed_tasks(self):
+    def completed_task(self):
 
-        """The method helps to archive complete tasks. The basic criterion is the 
-           number of lines left in the task. If number of lines is equal to 0, then 
-           the task will be copied as a new object into the Archive class."""
-
-        tasks = session.query(Task).filter_by(available_lines = 0).all()
-        for task in tasks:
-            old_task = Archive(date = task.date,
-                            hour = task.hour,
-                            name = task.name,
-                            lines = task.lines)
-            session.add(old_task)
-            logging.info(f"The task {task.name} from {task.date} was archived.")
-        session.commit()
-
-
-    def delete_completed_task(self):
-
-        """Through this method, a certain task will be deleted. 
-           To be able to delete the task, you need its id number"""
+        """Through this method, a certain task will be signed as processed. 
+           The basic criteria are the available lines. When all lines were assigned the 
+           'processed' attribute will be True"""
 
         tasks = session.query(Task).filter_by(available_lines = 0).all()
         for task in tasks:
-            session.execute(delete(Task).where(Task.num_id == task.num_id))
-            logging.info(f"The completed tasks {task.name} were deleted.")
+            session.execute(update(Task).where(Task.available_lines == 0).values(processed = True))
+            logging.info(f"The completed tasks {task.name} were signed as processed.")
         session.commit()
 
 
@@ -186,7 +170,7 @@ class Task(Base):
         print ("The list with tasks.")
         print("=" * 30)
         for row in list:
-            print ("ID:", row.num_id, "Date:", row.date, "Hour:", row.hour, "Name:", row.name, "Nr. of lines", row.lines)
+            print (F"ID: {row.num_id: <4} Date: {row.date: <13} Hour: {row.hour: <12} Name: {row.name: <13} Nr. of lines {row.lines}")
 
     def delete_item(self):
 
@@ -218,9 +202,11 @@ class Plan(Base):
 
     date        = Column(String)
     hour        = Column(String)
-    task_name   = Column(String, ForeignKey(Task.num_id))
+    task_name   = Column(String)
     users       = Column(String)
     lines       = Column(Integer)
+    processed   = Column(Boolean, default = False)
+    
 
     def __init__(self, date, hour, task_name, users, lines):
         self.date = date
@@ -239,7 +225,7 @@ class Plan(Base):
         
         while True:
             # create two lists of available tasks and employees
-            tasks = session.query(Task).order_by(Task.date.asc(), Task.available_lines.asc()).all()
+            tasks = session.query(Task).order_by(Task.processed.asc(), Task.date.asc(), Task.available_lines.asc()).all()
             employees = session.query(Employee).order_by(Employee.available_lines.desc()).all()
 
             # verifying if the tasks were full assigned or if 
@@ -258,7 +244,7 @@ class Plan(Base):
                         date = self.today,
                         hour = task.hour,
                         task_name = task.name,
-                        users = employee.last_name,
+                        users = employee.full_name,
                         lines = availability)
 
                     task.available_lines -= availability
@@ -266,8 +252,7 @@ class Plan(Base):
 
                     session.add(new_plan)
                     session.commit()
-                    Task.move_completed_tasks(Task)
-                    Task.delete_completed_task(Task)
+                    Task.completed_task(Task)
         logging.info(f"The plan for {self.today} was created.")
         return
 
@@ -287,10 +272,23 @@ class Plan(Base):
             except OSError as err:
                 print(err)
                 logging.error(err)
+    
+    
+    def update_plan(self, the_query_list):
 
-    def write_the_plan(self):
+        """This function is intended to update the created plan. The function should always 
+        be used after writing the data into a xlsx file. The iteration through the plan, 
+        more precisely the query variable, will be considered as a parameter."""
+
+        for task in the_query_list:
+            session.execute(update(Plan).where(Plan.processed == False).values(processed = True))
+        session.commit()
+        logging.info(f"The data was written. File name: {self.xlsx_name}")
+
+
+    def write_plan(self):
         
-        plan_list = session.query(Plan).order_by(Plan.date).order_by(Plan.hour).all()
+        plan_list = session.query(Plan).filter(Plan.processed == 0).order_by(Plan.date.asc(), Plan.hour.asc()).all()
 
         self.create_workbook()
         wb = load_workbook(self.file_path)
@@ -313,26 +311,5 @@ class Plan(Base):
         title_left_cell.fill = fill_cell
 
         wb.save(self.file_path)
-
-        for task in plan_list:
-            session.execute(delete(Plan).where(Plan.num_id == task.num_id))
-        session.commit()
-        logging.info(f"The plan was written. File name: {self.xlsx_name}")
-
-class Archive(Base):
-
-    """The class serves as an container for the assigned tasks. No methods are needed. """
-
-    __tablename__ = "Archive"    
-    num_id = Column(Integer, primary_key=True)
-
-    date = Column(String)
-    hour = Column(String)
-    name = Column(String)
-    lines  = Column(Integer)
-
-
-
-
-
+        self.update_plan(plan_list)
 

@@ -7,7 +7,9 @@ class MainMenu:
         self.menu_entries[num] = (name, command)
 
     def show_menu(self):
+        print("=" * 30)
         print("Main Menu:")
+        print("=" * 30)
         for number, (name, _) in self.menu_entries.items():
             print(f"{number} : {name}")
 
@@ -23,6 +25,7 @@ class MainMenu:
             elif user_input in self.menu_entries:
                 _, command = self.menu_entries[user_input]
                 command()
+                print()
                 print(input("Press ENTER to return! "))
             else:
                 print("Command not found. Please try again!")
