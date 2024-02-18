@@ -193,7 +193,7 @@ class Task(Base):
 
 class Plan(Base):
      
-    """This class is meant to create a time plan object. It includes 
+    """This class is meant to create a plan object. It includes 
        methods for calculating the work schedule for a working day. 
        Also, through this class, writing to the Excel file will be performed."""
 
@@ -253,6 +253,7 @@ class Plan(Base):
                     session.add(new_plan)
                     session.commit()
                     Task.completed_task(Task)
+        print("The plan was created.")
         logging.info(f"The plan for {self.today} was created.")
         return
 
@@ -260,9 +261,9 @@ class Plan(Base):
 
         if os.path.exists(self.file_path):
             print("*" * 30)
-            print("The plan was created. Your data were overwrite. Please check your folder!")
+            print("The plan has already been created. Please check your folder!")
             print("*" * 30)
-            logging.warning("The data in xlsx file were overwrite")
+            logging.warning("The xlsx file has already been created.")
             return
         else:
             try:
@@ -288,6 +289,8 @@ class Plan(Base):
 
     def write_plan(self):
         
+        """This method is responsible for transferring the plan to an xlsx file."""
+
         plan_list = session.query(Plan).filter(Plan.processed == 0).order_by(Plan.date.asc(), Plan.hour.asc()).all()
 
         self.create_workbook()
@@ -312,4 +315,5 @@ class Plan(Base):
 
         wb.save(self.file_path)
         self.update_plan(plan_list)
-
+        print(f"The file Plan {self.today}.xlsx has been created.")
+        logging.info(f"The {self.today} XLSX file has been updated.")
