@@ -1,6 +1,6 @@
 Task Planer
 
-Inspired by common situations encountered when working in teams in various professional 
+Inspired by common situations encountered when working in teams in few professional 
 environments, the program is designed to reduce the time required for allocating tasks 
 to employees by the administrator when a large number of employees and tasks are involved.
 The program is based on CLI. 
