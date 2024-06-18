@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-from connection import engine, folder_path, ROOT
+from connection import engine, ROOT
 
 #Configuration for logging
 logging.basicConfig(filename = ROOT / "log.log", \
@@ -216,7 +216,7 @@ class Plan(Base):
         self.lines = lines
         self.today = datetime.now().strftime("%d.%m.%Y")
         self.xlsx_name = f"Plan {self.today}.xlsx"
-        self.file_path = os.path.join(folder_path, self.xlsx_name)
+        self.file_path = os.path.join(ROOT, self.xlsx_name)
 
     def create_plan(self):
 
